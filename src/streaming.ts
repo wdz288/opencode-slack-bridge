@@ -19,16 +19,21 @@ interface ToolOutput {
 }
 
 const UPDATE_INTERVAL_MS = 500
-const MAX_MESSAGE_LENGTH = 3000
+const MAX_MESSAGE_LENGTH = 4000 // Slack's actual limit
 
 export class StreamManager {
   private streams = new Map<string, StreamState>()
   private updateTimers = new Map<string, NodeJS.Timeout>()
+  private eventHandlers = new Map<string, (event: Record<string, unknown>) => void>()
+  private onStreamEnd?: (sessionId: string) => Promise<void> | void
 
   constructor(
     private slack: WebClient,
-    private opencode: OpenCodeClient
-  ) {}
+    private opencode: OpenCodeClient,
+    onStreamEnd?: (sessionId: string) => Promise<void> | void
+  ) {
+    this.onStreamEnd = onStreamEnd
+  }
 
   async startStream(
     channelId: string,
@@ -45,53 +50,41 @@ export class StreamManager {
     }
 
     this.streams.set(sessionId, state)
-    this.listenToEvents(sessionId)
+
+    // Create bound handler for this session
+    const handler = (event: Record<string, unknown>) => {
+      this.handleEvent(sessionId, event)
+    }
+
+    this.eventHandlers.set(sessionId, handler)
+
+    // Register with single global SSE subscriber
+    await this.opencode.onSessionEvent(sessionId, handler)
   }
 
-  private async listenToEvents(sessionId: string): Promise<void> {
+  private handleEvent(sessionId: string, event: Record<string, unknown>): void {
     const state = this.streams.get(sessionId)
     if (!state) return
 
-    try {
-      const events = await this.opencode.subscribeToEvents()
+    const eventType = event.type as string
+    const props = event.properties as Record<string, unknown> | undefined
 
-      for await (const event of events) {
-        const current = this.streams.get(sessionId)
-        if (!current) break
+    switch (eventType) {
+      case 'message.part.delta':
+        this.handleDelta(state, props as { field: string; delta: string })
+        break
 
-        const evt = event as Record<string, unknown>
-        const props = evt.properties as Record<string, unknown> | undefined
+      case 'message.part.updated':
+        this.handlePartUpdated(state, props as { part: Record<string, unknown> })
+        break
 
-        if (props?.sessionID && props.sessionID !== sessionId) {
-          continue
-        }
+      case 'session.idle':
+        this.handleSessionIdle(state)
+        break
 
-        const eventType = evt.type as string
-
-        switch (eventType) {
-          case 'message.part.delta':
-            this.handleDelta(current, props as { field: string; delta: string })
-            break
-
-          case 'message.part.updated':
-            this.handlePartUpdated(current, props as { part: Record<string, unknown> })
-            break
-
-          case 'session.idle':
-            this.handleSessionIdle(current)
-            return
-
-          case 'session.error':
-            this.handleSessionError(current, props as { error?: { data?: { message?: string } } })
-            return
-        }
-      }
-    } catch (error) {
-      console.error('SSE listener error:', error)
-      const s = this.streams.get(sessionId)
-      if (s) {
-        await this.updateSlackMessage(s, `\n\n_Error: ${error instanceof Error ? error.message : 'Connection lost'}_`)
-      }
+      case 'session.error':
+        this.handleSessionError(state, props as { error?: { data?: { message?: string } } })
+        break
     }
   }
 
@@ -130,6 +123,8 @@ export class StreamManager {
   private handleSessionIdle(state: StreamState): void {
     this.updateSlackMessage(state, '', true)
     this.cleanup(state.sessionId)
+    // Fire and forget - don't await async callback
+    void this.onStreamEnd?.(state.sessionId)
   }
 
   private handleSessionError(
@@ -139,6 +134,8 @@ export class StreamManager {
     const errorMessage = properties.error?.data?.message || 'Unknown error'
     this.updateSlackMessage(state, `\n\n_Error: ${errorMessage}_`, true)
     this.cleanup(state.sessionId)
+    // Fire and forget - don't await async callback
+    void this.onStreamEnd?.(state.sessionId)
   }
 
   private scheduleUpdate(state: StreamState): void {
@@ -152,7 +149,9 @@ export class StreamManager {
       if (existing) clearTimeout(existing)
 
       const timer = setTimeout(() => {
-        this.updateSlackMessage(state)
+        if (this.streams.has(state.sessionId)) {
+          this.updateSlackMessage(state)
+        }
         this.updateTimers.delete(state.sessionId)
       }, UPDATE_INTERVAL_MS - elapsed)
 
@@ -169,8 +168,12 @@ export class StreamManager {
 
     let text = state.accumulatedText
 
-    if (text.length > MAX_MESSAGE_LENGTH) {
-      text = text.slice(0, MAX_MESSAGE_LENGTH - 20) + '\n... (truncated)'
+    // Calculate max length accounting for suffix and cursor
+    const truncationSuffix = '\n\n... (truncated)'
+    const maxTextLength = MAX_MESSAGE_LENGTH - truncationSuffix.length - (isFinal ? 0 : 1) - suffix.length
+
+    if (text.length > maxTextLength) {
+      text = text.slice(0, maxTextLength) + truncationSuffix
     }
 
     if (state.toolOutputs.size > 0 && isFinal) {
@@ -199,11 +202,7 @@ export class StreamManager {
     const completed = Array.from(tools.values()).filter(t => t.status === 'completed')
     if (completed.length === 0) return ''
 
-    const lines = completed.map(t => {
-      const emoji = t.status === 'completed' ? '\u2705' : t.status === 'error' ? '\u274C' : '\u23F3'
-      return `${emoji} ${t.title || t.tool}`
-    })
-
+    const lines = completed.map(t => `✅ ${t.title || t.tool}`)
     return '*Tools used:*\n' + lines.join('\n')
   }
 
@@ -212,11 +211,21 @@ export class StreamManager {
   }
 
   private cleanup(sessionId: string): void {
-    this.streams.delete(sessionId)
+    // Unregister from event bus
+    const handler = this.eventHandlers.get(sessionId)
+    if (handler) {
+      this.opencode.offSessionEvent(sessionId, handler)
+      this.eventHandlers.delete(sessionId)
+    }
+
+    // Clear timer
     const timer = this.updateTimers.get(sessionId)
     if (timer) {
       clearTimeout(timer)
       this.updateTimers.delete(sessionId)
     }
+
+    // Remove stream state
+    this.streams.delete(sessionId)
   }
 }

@@ -133,6 +133,17 @@ OPENCODE_URL=http://localhost:4096
 OPENCODE_URL=http://localhost:4097
 ```
 
+### Security Note
+
+If connecting to a remote OpenCode server (not localhost), use HTTPS:
+
+```env
+# Remote server (use HTTPS)
+OPENCODE_URL=https://your-server.example.com:4096
+```
+
+**Never expose OpenCode server to the internet without authentication.**
+
 ## Session Storage
 
 Session data is stored in SQLite at `./data/sessions.db`:
@@ -141,7 +152,6 @@ Session data is stored in SQLite at `./data/sessions.db`:
 |-------|---------|
 | `channel_sessions` | Maps Slack channel → OpenCode session |
 | `channel_directories` | Maps channel → project directory |
-| `session_events` | Stores events for replay |
 
 Data persists across restarts. Delete the `./data` folder to reset.
 
@@ -153,18 +163,35 @@ Data persists across restarts. Delete the `./data` folder to reset.
 2. **Mention in channel** — `@OpenCode Bridge your message`
 3. **Reply in thread** — Continue conversations in threads
 
+### Slash Commands
+
+| Command | Description |
+|---------|-------------|
+| `/abort` | Stop the current running session |
+| `/resume` | List and resume a previous session |
+| `/queue` | View the message queue |
+| `/queue clear` | Clear all queued messages |
+| `/sessions` | Show current session info |
+| `/help` | List all available commands |
+
+### Tips
+
+- End a message with `. queue` to manually queue it while session is busy
+- Messages sent while busy are automatically queued and processed in order
+- Sessions persist across bridge restarts (stored in SQLite)
+
 ## File Structure
 
 ```
 opencode-slack-bridge/
 ├── src/
 │   ├── index.ts        # Entry point
-│   ├── slack.ts        # Slack Bolt handlers
-│   ├── opencode.ts     # OpenCode SDK client
+│   ├── slack.ts        # Slack Bolt handlers + slash commands
+│   ├── opencode.ts     # OpenCode SDK client + SSE event bus
 │   ├── sessions.ts     # Session management
-│   ├── database.ts     # SQLite persistence
+│   ├── database.ts     # SQLite persistence (better-sqlite3)
 │   ├── streaming.ts    # SSE → Slack message updates
-│   ├── formatter.ts    # Response formatting
+│   ├── queue.ts        # Message queue for busy sessions
 │   └── setup.ts        # Verification script
 ├── data/               # SQLite database (gitignored)
 ├── .env.example        # Token template

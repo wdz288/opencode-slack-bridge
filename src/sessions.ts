@@ -7,18 +7,18 @@ export class SessionManager {
     this.db = new SessionDatabase(dbPath)
   }
 
-  get(channelId: string): string | undefined {
-    const row = this.db.getSession(channelId)
+  get(sessionKey: string): string | undefined {
+    const row = this.db.getSession(sessionKey)
     return row?.session_id
   }
 
-  set(channelId: string, sessionId: string): void {
-    this.db.setSession(channelId, sessionId)
+  set(sessionKey: string, sessionId: string): void {
+    this.db.setSession(sessionKey, sessionId)
   }
 
-  delete(channelId: string): boolean {
-    const existed = this.get(channelId) !== undefined
-    this.db.deleteSession(channelId)
+  delete(sessionKey: string): boolean {
+    const existed = this.get(sessionKey) !== undefined
+    this.db.deleteSession(sessionKey)
     return existed
   }
 
@@ -27,6 +27,10 @@ export class SessionManager {
       channelId: row.channel_id,
       sessionId: row.session_id,
     }))
+  }
+
+  listKeys(): string[] {
+    return this.db.listSessions().map(row => row.channel_id)
   }
 
   // Directory mapping for multi-project support

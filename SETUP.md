@@ -73,7 +73,29 @@ Follow these steps to create a Slack app for OpenCode Slack Bridge.
 3. Check **"Messages Tab"**
 4. Check **"Allow users to send Slash commands and messages from the messages tab"**
 
-## Step 7: Configure .env
+## Step 7: Create Slash Commands
+
+1. In the left sidebar, click **"Slash Commands"**
+2. Click **"Create New Command"** for each command below:
+
+| Command | Description | Usage Hint |
+|---------|-------------|------------|
+| `/abort` | Stop the current session | |
+| `/resume` | Resume a previous session | |
+| `/queue` | View or clear message queue | `[clear]` |
+| `/sessions` | Show current session info | |
+| `/help` | List all commands | |
+
+For each command:
+- **Command**: Enter the command (e.g., `/abort`)
+- **Short Description**: Enter the description
+- **Usage Hint**: Enter the hint (if any)
+- Click **"Save"**
+
+3. After creating all commands, reinstall the app:
+   - Go to **"Install App"** → **"Reinstall to Workspace"**
+
+## Step 8: Configure .env
 
 Create `.env` file with your tokens:
 
