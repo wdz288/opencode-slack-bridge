@@ -89,62 +89,7 @@ run.bat
 
 This solves the issue where OpenCode may start on a random port instead of 4096 (common since OpenCode v1.3+ where HTTP server is disabled by default).
 
-## Multiple Clients / Shared Server
-
-### Can Multiple Bridges Connect to the Same OpenCode Server?
-
-**Yes.** OpenCode server (`opencode serve`) is a stateless HTTP API server. Multiple clients can connect simultaneously:
-
-```
-┌─────────────────┐
-│ Slack Bridge     │──┐
-└─────────────────┘  │
-                     ▼
-┌─────────────────┐  ┌──────────────────┐
-│ Discord Bridge  │──▶│ OpenCode Server  │
-└─────────────────┘  │ localhost:4096    │
-                     └──────────────────┘
-┌─────────────────┐  ▲
-│ Web UI          │──┘
-└─────────────────┘
-```
-
-### How Sessions Work
-
-- Each bridge creates its own sessions via `POST /session`
-- Sessions are isolated — your Slack sessions don't interfere with Discord sessions
-- The server manages all sessions independently
-
-### Running Multiple Bridges
-
-```bash
-# Terminal 1: OpenCode server
-opencode serve
-
-# Terminal 2: Slack bridge
-cd opencode-slack-bridge
-npm run dev
-
-# Terminal 3: Discord bridge (like kimaki)
-cd kimaki
-npm run dev
-```
-
-### Different Project Directories
-
-If you need separate OpenCode servers for different projects:
-
-```bash
-# Project A
-cd ~/project-a
-opencode serve --port 4096
-
-# Project B
-cd ~/project-b
-opencode serve --port 4097
-```
-
-Then configure each bridge to point to its server:
+> **Tip:** OpenCode is a stateless HTTP API. See [docs/MULTI_CLIENT.md](docs/MULTI_CLIENT.md) for running multiple bridges or sharing servers.
 
 ```env
 # Bridge for Project A

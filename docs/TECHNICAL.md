@@ -62,49 +62,49 @@
 ## 2. Complete Flow Diagram
 
 ```mermaid
-graph TD
-    A[Slack Message] --> B{authorized?}
-    B -->|no| C[Ignore]
-    B -->|yes| D{ends with ". queue"?}
+flowchart TD
+    A["Slack Message"] --> B{authorized?}
+    B -->|no| C["Ignore"]
+    B -->|yes| D{"ends with<br/>'. queue'?"}
     
-    D -->|yes| E[Enqueue message]
-    D -->|no| F{session busy?}
+    D -->|yes| E["Enqueue<br/>message"]
+    D -->|no| F{"session<br/>busy?"}
     
-    F -->|yes| G[Auto-enqueue]
-    F -->|no| H[Create OpenCode session]
+    F -->|yes| G["Auto<br/>enqueue"]
+    F -->|no| H["Create<br/>OpenCode session"]
     
-    H --> I[Send initial response :typing:]
-    I --> J[Start SSE stream]
-    J --> K[Send prompt to OpenCode]
+    H --> I["Send<br/>:typing:"]
+    I --> J["Start SSE<br/>stream"]
+    J --> K["Send prompt<br/>to OpenCode"]
     
     K --> L{SSE Events}
-    L -->|message.part.delta| M[Accumulate text]
-    L -->|message.part.updated| N[Track reasoning parts]
-    L -->|tool-result| O[Update tool progress]
-    L -->|session.idle| P[Finalize message]
-    L -->|session.error| Q[Handle error]
+    L -->|part.delta| M["Accumulate<br/>text"]
+    L -->|part.updated| N["Track<br/>reasoning"]
+    L -->|tool-result| O["Update tool<br/>progress"]
+    L -->|session.idle| P["Finalize<br/>message"]
+    L -->|session.error| Q["Handle<br/>error"]
     
-    M --> R{Is reasoning part?}
-    R -->|yes| S[Skip]
-    R -->|no| T[Append to accumulated]
-    T --> U[Schedule Slack update]
+    M --> R{Is reasoning<br/>part?}
+    R -->|yes| S["Skip"]
+    R -->|no| T["Append<br/>text"]
+    T --> U["Schedule<br/>Slack update"]
     
     S --> L
     T --> L
     
-    U --> V[Update Slack message]
+    U --> V["Update<br/>Slack message"]
     V --> L
     
-    P --> W{Message too long?}
-    W -->|yes| X[Chunk into threads]
-    W -->|no| Y[Single message]
+    P --> W{Message<br/>too long?}
+    W -->|yes| X["Chunk<br/>threads"]
+    W -->|no| Y["Single<br/>message"]
     
-    X --> Z[Add tool summary]
+    X --> Z["Add tool<br/>summary"]
     Y --> Z
     
-    Z --> AA[Update reaction ✓]
-    AA --> BB[Drain queue if any]
-    BB --> CC[End]
+    Z --> AA[":white_check_mark:"]
+    AA --> BB["Drain queue"]
+    BB --> CC["End"]
 ```
 
 ---
