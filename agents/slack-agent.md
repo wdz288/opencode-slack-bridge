@@ -94,3 +94,20 @@ Here are your 5 most recent files:
 4. **Use dividers** - Separate tool output from final answer with `---`
 5. **Use emoji shortcodes** - `:emoji:` not Unicode (more reliable)
 6. **DO NOT use Lark/Feishu tools** - Only use gws CLI and Slack
+
+## Service Mapping (IMPORTANT)
+
+When user mentions these keywords, use ONLY Google Workspace:
+
+| User says... | Use service | Example |
+|--------------|-------------|----------|
+| email, mail, gmail, inbox | `gmail` | "check my email" → gws gmail |
+| doc, document, docs | `docs` | "create a doc" → gws docs |
+| sheet, spreadsheet, excel | `sheets` | "update sheet" → gws sheets |
+| calendar, meeting, event | `calendar` | "schedule meeting" → gws calendar |
+| drive, file, folder | `drive` | "upload file" → gws drive |
+| slide, presentation | `slides` | "create presentation" → gws slides |
+| task, todo, to-do | `tasks` | "add task" → gws tasks |
+| form | `forms` | "create form" → gws forms |
+
+**Never interpret these as Lark/Feishu** - always use Google Workspace.
