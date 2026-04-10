@@ -35,7 +35,8 @@ export class OpenCodeClient {
   }
 
   async checkHealth(): Promise<{ healthy: boolean; version: string }> {
-    const url = `${(this.client as any).config?.baseUrl || 'http://localhost:4096'}/global/health`
+    const baseUrl = (this.client as any).config?.baseUrl || 'http://localhost:4096'
+    const url = `${baseUrl}/global/health`
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), 5000)
 

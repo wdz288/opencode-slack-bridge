@@ -1,5 +1,5 @@
 @echo off
-setlocal enabledelayedexpansion
+setlocal
 
 echo ========================================
 echo   OpenCode Slack Bridge Launcher
@@ -8,40 +8,33 @@ echo.
 
 cd /d "%~dp0"
 
-:: Ports to try - start with 4096, then fall back
-set "FOUND_PORT="
-set "START_PORT=4096"
-
-:scan_loop
-for %%P in (%START_PORT% 4097 4098 4099 5000 6000 61108 62000 63000 64000 65000 70000) do (
-    powershell -Command "try { Invoke-WebRequest -Uri 'http://localhost:%%P/global/health' -UseBasicParsing -TimeoutSec 2 | Out-Null; exit 0 } catch { exit 1 }"
-    if !errorlevel! equ 0 (
-        set "FOUND_PORT=%%P"
-        goto :server_found
-    )
+:: Check 4097 first
+powershell -Command "$r = Invoke-WebRequest -Uri 'http://localhost:4097/global/health' -UseBasicParsing -TimeoutSec 3 -ErrorAction SilentlyContinue; if ($r) { exit 0 } else { exit 1 }"
+if %errorlevel% equ 0 (
+    echo [OK] OpenCode on 4097
+    set "PORT=4097"
+    goto :done
 )
 
-:try_start
-if defined START_PORT (
-    echo [OPENCODE] Port %START_PORT% not responding, starting server...
-    start "OpenCode Server" cmd /k "opencode serve --port %START_PORT%"
-    powershell -Command "Start-Sleep -Seconds 15"
-    set "START_PORT=" & goto :scan_loop
+:: Check 4096
+powershell -Command "$r = Invoke-WebRequest -Uri 'http://localhost:4096/global/health' -UseBasicParsing -TimeoutSec 3 -ErrorAction SilentlyContinue; if ($r) { exit 0 } else { exit 1 }"
+if %errorlevel% equ 0 (
+    echo [OK] OpenCode on 4096
+    set "PORT=4096"
+    goto :done
 )
 
-:server_found
-if not defined FOUND_PORT (
-    echo [ERROR] Could not find or start OpenCode server
-    pause
-    exit /b 1
-)
+:: Start on 4097
+echo [INFO] Starting OpenCode on 4097...
+start "OpenCode" cmd /k "opencode serve --port 4097"
+powershell -Command "Start-Sleep -Seconds 20"
 
-echo [OPENCODE] Using port %FOUND_PORT%
+:done
+echo Using port: %PORT%
 
-:: Update .env with the correct port
-powershell -Command "$c = Get-Content '.env'; $c = $c -replace 'OPENCODE_URL=http://localhost:\d+', 'OPENCODE_URL=http://localhost:%FOUND_PORT%'; Set-Content '.env' $c"
+:: Update .env with regex replace
+powershell -Command "$c = Get-Content '.env' -Raw; $c = $c -replace 'OPENCODE_URL=http://localhost:\d+', 'OPENCODE_URL=http://localhost:%PORT%'; $c | Set-Content '.env'"
 
 echo.
 echo Starting Slack Bridge...
-echo.
 npm run dev

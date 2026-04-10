@@ -39,7 +39,11 @@ async function checkEnvironment(): Promise<CheckResult[]> {
   const opencodeUrl = process.env.OPENCODE_URL || 'http://localhost:4096'
   
   try {
-    const response = await fetch(`${opencodeUrl}/global/health`)
+    console.log(`[DEBUG] Testing ${opencodeUrl}/global/health...`)
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 5000)
+    const response = await fetch(`${opencodeUrl}/global/health`, { signal: controller.signal })
+    clearTimeout(timeoutId)
     const data = await response.json() as { healthy?: boolean; version?: string }
     
     results.push({

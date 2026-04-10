@@ -494,14 +494,13 @@ export class SlackBridge {
     })
   }
 
-  async start() {
-    // Health check
+async start() {
+    // index.ts already detected the port, just verify
     try {
-      const health = await this.opencode.checkHealth()
-      console.log(`OpenCode connected: version ${health.version}`)
-    } catch (error) {
-      console.error('Cannot reach OpenCode server. Is it running?')
-      process.exit(1)
+      const health: any = await this.opencode.checkHealth()
+      console.log(`✓ OpenCode ${health.version} connected`)
+    } catch {
+      console.warn('⚠️ OpenCode not reachable')
     }
 
     await this.app.start()
