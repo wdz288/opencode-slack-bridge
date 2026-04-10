@@ -3,6 +3,7 @@ import { OpenCodeClient } from './opencode.js'
 import { SessionManager } from './sessions.js'
 import { StreamManager } from './streaming.js'
 import { MessageQueue } from './queue.js'
+import { logger } from './logger.js'
 
 export interface SlackBridgeConfig {
   appToken: string
@@ -93,7 +94,13 @@ export class SlackBridge {
       }
 
       console.log(`[drainQueue] Starting stream, sessionId: ${sessionId}`)
-      await this.streamManager.startStream(sessionKey, initialResponse.ts, sessionId)
+      await this.streamManager.startStream(
+        next.channelId,
+        initialResponse.ts,
+        sessionId,
+        next.channelId,
+        initialResponse.ts // Use the bot's response as the fallback "original"
+      )
       console.log(`[drainQueue] Sending prompt to OpenCode...`)
       await this.opencode.sendPrompt(sessionId, next.text, this.opencodeAgent)
       console.log(`[drainQueue] Prompt sent, waiting for response...`)
@@ -155,7 +162,7 @@ export class SlackBridge {
       const files = 'files' in message ? message.files : undefined
       const sessionKey = this.getSessionKey(channelId, threadTs)
 
-      console.log(`[SLACK] Message received from ${userId} in ${channelId}${threadTs ? ':'+threadTs : ''}`)
+      logger.info(`[SLACK] Message received from ${userId} in ${channelId}${threadTs ? ':'+threadTs : ''}`)
 
       // Access control
       if (!this.isAuthorized(userId, channelId)) {
